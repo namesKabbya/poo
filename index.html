@@ -9,69 +9,86 @@
 
 <style>
 :root {
-  --bg: #0f172a;
-  --card: #1e293b;
+  --bg: #020617;
+  --card: rgba(30,41,59,0.92);
   --accent: #38bdf8;
+  --green: #22c55e;
+  --red: #ef4444;
   --text: #e5e7eb;
 }
 
 body {
-  font-family: system-ui, sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  margin: 0;
   padding: 20px;
+  font-family: system-ui, sans-serif;
+  background: linear-gradient(145deg, #020617, #0f172a);
+  color: var(--text);
 }
 
 h1 {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 22px;
+}
+
+.container {
+  max-width: 560px;
+  margin: auto;
 }
 
 section {
   background: var(--card);
+  backdrop-filter: blur(10px);
   padding: 16px;
-  margin-bottom: 16px;
-  border-radius: 14px;
+  margin-bottom: 18px;
+  border-radius: 18px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.35);
 }
 
 button {
+  width: 100%;
   background: var(--accent);
   color: #000;
   border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  font-weight: 600;
   cursor: pointer;
+  margin-top: 8px;
 }
 
 input, select {
   width: 100%;
-  padding: 8px;
-  margin: 6px 0;
-  border-radius: 6px;
+  padding: 10px;
+  margin-top: 6px;
+  border-radius: 10px;
   border: none;
+  background: #020617;
+  color: var(--text);
 }
 
 .progress {
-  height: 12px;
-  background: #334155;
-  border-radius: 8px;
+  height: 14px;
+  background: #1e293b;
+  border-radius: 10px;
   overflow: hidden;
 }
 
 .progress span {
   display: block;
   height: 100%;
-  background: #22c55e;
   width: 0%;
+  background: var(--green);
+  transition: width 0.3s ease;
 }
 
 ul {
   padding-left: 18px;
+  margin: 10px 0;
 }
 
 canvas {
-  max-width: 100%;
-  height: 300px;
+  margin-top: 14px;
+  height: 280px !important;
 }
 </style>
 </head>
@@ -80,12 +97,14 @@ canvas {
 
 <h1>💸 Healthy Finance Tracker</h1>
 
+<div class="container">
+
 <!-- WATER -->
 <section>
   <h2>💧 Water</h2>
   <p><span id="water">0</span> / 8 glasses</p>
   <div class="progress"><span id="waterBar"></span></div>
-  <button onclick="drink()">Drink</button>
+  <button onclick="drink()">Drink Water</button>
 </section>
 
 <!-- SAVINGS -->
@@ -93,13 +112,13 @@ canvas {
   <h2>💰 Savings</h2>
   <input id="saveAmt" type="number" placeholder="Amount">
   <button onclick="save()">Add Savings</button>
-  <p>Total: ৳<span id="saved">0</span></p>
+  <p>Total Saved: ৳<strong id="saved">0</strong></p>
 </section>
 
 <!-- EXPENSES -->
 <section>
   <h2>📊 Expenses</h2>
-  <input id="expAmt" type="number" placeholder="Amount">
+  <input id="expAmt" type="number" placeholder="Expense amount">
   <select id="cat">
     <option>Food</option>
     <option>Transport</option>
@@ -110,52 +129,89 @@ canvas {
 
   <ul id="expList"></ul>
 
-  <canvas id="expChart"></canvas>
+  <canvas id="pieChart"></canvas>
+  <canvas id="barChart"></canvas>
+
+  <button onclick="exportCSV()">⬇ Export CSV</button>
 </section>
 
+</div>
+
 <script>
-let water = Number(localStorage.getItem("water")) || 0;
-let saved = Number(localStorage.getItem("saved")) || 0;
+/* ---------- STORAGE ---------- */
+let water = +localStorage.getItem("water") || 0;
+let saved = +localStorage.getItem("saved") || 0;
 let expenses = JSON.parse(localStorage.getItem("expenses")) || {};
-let chart = null;
+let monthly = JSON.parse(localStorage.getItem("monthly")) || [];
+let pieChart = null, barChart = null;
 
-// INIT
+/* ---------- DOM ---------- */
+const waterText = document.getElementById("water");
+const waterBar = document.getElementById("waterBar");
+const savedText = document.getElementById("saved");
+const expList = document.getElementById("expList");
+
+/* ---------- INIT ---------- */
 updateWater();
-document.getElementById("saved").innerText = saved;
-drawChart();
+savedText.innerText = saved;
 renderList();
+drawCharts();
+dailyReset();
+monthlyReset();
+requestNotificationPermission();
+setInterval(waterReminder, 2 * 60 * 60 * 1000);
 
+/* ---------- WATER ---------- */
 function drink() {
-  if (water < 8) water++;
-  localStorage.setItem("water", water);
-  updateWater();
+  if (water < 8) {
+    water++;
+    localStorage.setItem("water", water);
+    updateWater();
+  }
 }
 
 function updateWater() {
-  document.getElementById("water").innerText = water;
-  document.getElementById("waterBar").style.width = (water / 8) * 100 + "%";
+  waterText.innerText = water;
+  waterBar.style.width = (water / 8) * 100 + "%";
 }
 
+function waterReminder() {
+  if (water < 8 && Notification.permission === "granted") {
+    new Notification("💧 Drink Water", {
+      body: "Stay hydrated!"
+    });
+  }
+}
+
+/* ---------- SAVINGS ---------- */
 function save() {
-  const amt = Number(saveAmt.value);
-  if (!amt) return;
+  const amt = +saveAmt.value;
+  if (!amt || amt <= 0) return;
   saved += amt;
   localStorage.setItem("saved", saved);
-  document.getElementById("saved").innerText = saved;
+  savedText.innerText = saved;
   saveAmt.value = "";
 }
 
+/* ---------- EXPENSES ---------- */
 function expense() {
-  const amt = Number(expAmt.value);
-  const cat = catSelect.value;
-  if (!amt) return;
+  const amt = +expAmt.value;
+  const cat = cat.value;
+  if (!amt || amt <= 0) return;
 
   expenses[cat] = (expenses[cat] || 0) + amt;
+  monthly.push({ date: new Date().toLocaleDateString(), amt });
+
   localStorage.setItem("expenses", JSON.stringify(expenses));
+  localStorage.setItem("monthly", JSON.stringify(monthly));
+
+  if (Object.values(expenses).reduce((a,b)=>a+b,0) > 10000) {
+    alert("⚠ Overspending Alert!");
+  }
 
   expAmt.value = "";
-  drawChart();
   renderList();
+  drawCharts();
 }
 
 function renderList() {
@@ -165,33 +221,74 @@ function renderList() {
   }
 }
 
-function drawChart() {
-  if (chart) chart.destroy();
+/* ---------- CHARTS ---------- */
+function drawCharts() {
+  if (pieChart) pieChart.destroy();
+  if (barChart) barChart.destroy();
 
-  chart = new Chart(expChart, {
+  pieChart = new Chart(pieChartEl, {
     type: "pie",
     data: {
       labels: Object.keys(expenses),
       datasets: [{
         data: Object.values(expenses),
-        backgroundColor: ["#f97316","#22c55e","#3b82f6","#a855f7"]
+        backgroundColor: ["#fb923c","#22c55e","#60a5fa","#a78bfa"]
       }]
-    },
-    options: {
-      plugins: {
-        legend: { labels: { color: "#e5e7eb" } }
-      }
+    }
+  });
+
+  const days = {};
+  monthly.forEach(e => days[e.date] = (days[e.date] || 0) + e.amt);
+
+  barChart = new Chart(barChartEl, {
+    type: "bar",
+    data: {
+      labels: Object.keys(days),
+      datasets: [{
+        data: Object.values(days)
+      }]
     }
   });
 }
 
-// DAILY WATER RESET
-const today = new Date().toDateString();
-if (localStorage.getItem("day") !== today) {
-  localStorage.setItem("day", today);
-  localStorage.setItem("water", 0);
-  water = 0;
-  updateWater();
+/* ---------- EXPORT ---------- */
+function exportCSV() {
+  let csv = "Category,Amount\n";
+  for (let k in expenses) csv += `${k},${expenses[k]}\n`;
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "expenses.csv";
+  a.click();
+}
+
+/* ---------- RESETS ---------- */
+function dailyReset() {
+  const today = new Date().toDateString();
+  if (localStorage.getItem("day") !== today) {
+    localStorage.setItem("day", today);
+    water = 0;
+    localStorage.setItem("water", 0);
+    updateWater();
+  }
+}
+
+function monthlyReset() {
+  const month = new Date().getMonth();
+  if (localStorage.getItem("month") != month) {
+    localStorage.setItem("month", month);
+    expenses = {};
+    monthly = [];
+    localStorage.setItem("expenses", "{}");
+    localStorage.setItem("monthly", "[]");
+  }
+}
+
+/* ---------- NOTIFICATIONS ---------- */
+function requestNotificationPermission() {
+  if ("Notification" in window && Notification.permission !== "granted") {
+    Notification.requestPermission();
+  }
 }
 </script>
 
