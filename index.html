@@ -25,10 +25,7 @@ body {
   color: var(--text);
 }
 
-h1 {
-  text-align: center;
-  margin-bottom: 22px;
-}
+h1 { text-align: center; margin-bottom: 22px; }
 
 .container {
   max-width: 560px;
@@ -99,7 +96,6 @@ canvas {
 
 <div class="container">
 
-<!-- WATER -->
 <section>
   <h2>💧 Water</h2>
   <p><span id="water">0</span> / 8 glasses</p>
@@ -107,7 +103,6 @@ canvas {
   <button onclick="drink()">Drink Water</button>
 </section>
 
-<!-- SAVINGS -->
 <section>
   <h2>💰 Savings</h2>
   <input id="saveAmt" type="number" placeholder="Amount">
@@ -115,7 +110,6 @@ canvas {
   <p>Total Saved: ৳<strong id="saved">0</strong></p>
 </section>
 
-<!-- EXPENSES -->
 <section>
   <h2>📊 Expenses</h2>
   <input id="expAmt" type="number" placeholder="Expense amount">
@@ -138,18 +132,21 @@ canvas {
 </div>
 
 <script>
-/* ---------- STORAGE ---------- */
-let water = +localStorage.getItem("water") || 0;
-let saved = +localStorage.getItem("saved") || 0;
+/* ---------- STATE ---------- */
+let water = Number(localStorage.getItem("water")) || 0;
+let saved = Number(localStorage.getItem("saved")) || 0;
 let expenses = JSON.parse(localStorage.getItem("expenses")) || {};
 let monthly = JSON.parse(localStorage.getItem("monthly")) || [];
-let pieChart = null, barChart = null;
+let pieChart = null;
+let barChart = null;
 
 /* ---------- DOM ---------- */
 const waterText = document.getElementById("water");
 const waterBar = document.getElementById("waterBar");
 const savedText = document.getElementById("saved");
 const expList = document.getElementById("expList");
+const pieChartEl = document.getElementById("pieChart");
+const barChartEl = document.getElementById("barChart");
 
 /* ---------- INIT ---------- */
 updateWater();
@@ -157,9 +154,6 @@ savedText.innerText = saved;
 renderList();
 drawCharts();
 dailyReset();
-monthlyReset();
-requestNotificationPermission();
-setInterval(waterReminder, 2 * 60 * 60 * 1000);
 
 /* ---------- WATER ---------- */
 function drink() {
@@ -175,49 +169,39 @@ function updateWater() {
   waterBar.style.width = (water / 8) * 100 + "%";
 }
 
-function waterReminder() {
-  if (water < 8 && Notification.permission === "granted") {
-    new Notification("💧 Drink Water", {
-      body: "Stay hydrated!"
-    });
-  }
-}
-
 /* ---------- SAVINGS ---------- */
 function save() {
-  const amt = +saveAmt.value;
+  const amt = Number(document.getElementById("saveAmt").value);
   if (!amt || amt <= 0) return;
+
   saved += amt;
   localStorage.setItem("saved", saved);
   savedText.innerText = saved;
-  saveAmt.value = "";
+  document.getElementById("saveAmt").value = "";
 }
 
 /* ---------- EXPENSES ---------- */
 function expense() {
-  const amt = +expAmt.value;
-  const cat = cat.value;
+  const amt = Number(document.getElementById("expAmt").value);
+  const catVal = document.getElementById("cat").value;
+
   if (!amt || amt <= 0) return;
 
-  expenses[cat] = (expenses[cat] || 0) + amt;
+  expenses[catVal] = (expenses[catVal] || 0) + amt;
   monthly.push({ date: new Date().toLocaleDateString(), amt });
 
   localStorage.setItem("expenses", JSON.stringify(expenses));
   localStorage.setItem("monthly", JSON.stringify(monthly));
 
-  if (Object.values(expenses).reduce((a,b)=>a+b,0) > 10000) {
-    alert("⚠ Overspending Alert!");
-  }
-
-  expAmt.value = "";
+  document.getElementById("expAmt").value = "";
   renderList();
   drawCharts();
 }
 
 function renderList() {
   expList.innerHTML = "";
-  for (let k in expenses) {
-    expList.innerHTML += `<li>${k}: ৳${expenses[k]}</li>`;
+  for (const key in expenses) {
+    expList.innerHTML += `<li>${key}: ৳${expenses[key]}</li>`;
   }
 }
 
@@ -238,7 +222,9 @@ function drawCharts() {
   });
 
   const days = {};
-  monthly.forEach(e => days[e.date] = (days[e.date] || 0) + e.amt);
+  monthly.forEach(e => {
+    days[e.date] = (days[e.date] || 0) + e.amt;
+  });
 
   barChart = new Chart(barChartEl, {
     type: "bar",
@@ -254,7 +240,9 @@ function drawCharts() {
 /* ---------- EXPORT ---------- */
 function exportCSV() {
   let csv = "Category,Amount\n";
-  for (let k in expenses) csv += `${k},${expenses[k]}\n`;
+  for (const k in expenses) {
+    csv += `${k},${expenses[k]}\n`;
+  }
   const blob = new Blob([csv], { type: "text/csv" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -262,7 +250,7 @@ function exportCSV() {
   a.click();
 }
 
-/* ---------- RESETS ---------- */
+/* ---------- RESET ---------- */
 function dailyReset() {
   const today = new Date().toDateString();
   if (localStorage.getItem("day") !== today) {
@@ -270,24 +258,6 @@ function dailyReset() {
     water = 0;
     localStorage.setItem("water", 0);
     updateWater();
-  }
-}
-
-function monthlyReset() {
-  const month = new Date().getMonth();
-  if (localStorage.getItem("month") != month) {
-    localStorage.setItem("month", month);
-    expenses = {};
-    monthly = [];
-    localStorage.setItem("expenses", "{}");
-    localStorage.setItem("monthly", "[]");
-  }
-}
-
-/* ---------- NOTIFICATIONS ---------- */
-function requestNotificationPermission() {
-  if ("Notification" in window && Notification.permission !== "granted") {
-    Notification.requestPermission();
   }
 }
 </script>
