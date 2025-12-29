@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Healthy Finance Tracker</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: #e5e7eb;
+  padding: 20px;
+}
+h1 { text-align: center; }
+section {
+  background: #1e293b;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 10px;
+}
+button {
+  padding: 8px 12px;
+  margin-top: 5px;
+  cursor: pointer;
+}
+input, select {
+  padding: 6px;
+  margin: 5px 0;
+}
+</style>
+</head>
+
+<body>
+
+<h1>💸 Healthy Finance Tracker</h1>
+
+<section>
+  <h2>💧 Water</h2>
+  <p><span id="water">0</span> / 8 glasses</p>
+  <button onclick="drink()">Drink</button>
+</section>
+
+<section>
+  <h2>💰 Savings</h2>
+  <input id="saveAmt" type="number" placeholder="Amount">
+  <button onclick="save()">Add</button>
+  <p>Total: ৳<span id="saved">0</span></p>
+</section>
+
+<section>
+  <h2>📊 Expenses</h2>
+  <input id="expAmt" type="number" placeholder="Amount">
+  <select id="cat">
+    <option>Food</option>
+    <option>Transport</option>
+    <option>Shopping</option>
+    <option>Other</option>
+  </select>
+  <button onclick="expense()">Add</button>
+  <canvas id="expChart"></canvas>
+</section>
+
+<script>
+let water = Number(localStorage.getItem("water")) || 0;
+let saved = Number(localStorage.getItem("saved")) || 0;
+let expenses = JSON.parse(localStorage.getItem("expenses")) || {};
+
+document.getElementById("water").innerText = water;
+document.getElementById("saved").innerText = saved;
+
+function drink() {
+  if (water < 8) water++;
+  localStorage.setItem("water", water);
+  document.getElementById("water").innerText = water;
+}
+
+function save() {
+  const amt = Number(document.getElementById("saveAmt").value);
+  if (!amt) return;
+  saved += amt;
+  localStorage.setItem("saved", saved);
+  document.getElementById("saved").innerText = saved;
+}
+
+function expense() {
+  const amt = Number(document.getElementById("expAmt").value);
+  const cat = document.getElementById("cat").value;
+  if (!amt) return;
+  expenses[cat] = (expenses[cat] || 0) + amt;
+  localStorage.setItem("expenses", JSON.stringify(expenses));
+  drawChart();
+}
+
+function drawChart() {
+  new Chart(document.getElementById("expChart"), {
+    type: "pie",
+    data: {
+      labels: Object.keys(expenses),
+      datasets: [{
+        data: Object.values(expenses)
+      }]
+    }
+  });
+}
+
+drawChart();
+</script>
+
+</body>
+</html>
